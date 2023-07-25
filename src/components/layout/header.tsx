@@ -1,34 +1,13 @@
-import { UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default function Header() {
-  const { isSignedIn, isLoaded } = useAuth();
   return (
-    <div className="fixed left-0 right-0 top-0 h-12 flex justify-between p-2 bg-black/20 items-center">
+    <div className="fixed left-0 right-0 top-0 flex h-12 w-full items-center justify-between bg-black/20 px-6 py-1">
       <Link href="/app">
-        <span className="text-[hsl(280,100%,70%)] font-extrabold">
-          Lucidlock
+        <span className="text-3xl font-extrabold text-[hsl(280,100%,70%)]">
+          LucidLock
         </span>
       </Link>
-
-      {isSignedIn && (
-        <UserButton
-          appearance={{
-            elements: {
-              userButtonAvatarBox: {
-                width: "2rem",
-                height: "2rem",
-              },
-            },
-          }}
-          afterSignOutUrl="/"
-        />
-      )}
-      {!isSignedIn && isLoaded && (
-        <p className="text-center text-2xl text-white">
-          <Link href="/sign-in">Sign In</Link>
-        </p>
-      )}
     </div>
   );
 }

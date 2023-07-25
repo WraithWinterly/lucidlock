@@ -1,32 +1,98 @@
-import { useClerk, useUser } from "@clerk/nextjs";
-import { useState } from "react";
-import useAPI from "~/hooks/useAPI";
-import { APIFunctions, GetDream } from "../_shared/apiTypes";
+"use client";
+
+import { Dream } from "@prisma/client";
+import { useEffect, useState } from "react";
+import Create from "~/components/app/create";
+import DeleteDream from "~/components/app/deleteDream";
+import EditDream from "~/components/app/editDream";
+import ViewDream from "~/components/app/viewDream";
+import DreamCard from "~/components/dreamCard";
+import Modal from "~/components/ui/modal";
+import useDreamStore from "~/stores/dreamStore";
 
 export default function App() {
-  const user = useUser();
+  const dreams = useDreamStore((state) => state.dreams);
+  const getDreams = useDreamStore((state) => state.getDreams);
+  const [createModalShown, setCreateModalShown] = useState(false);
 
-  const { error, loading, data } = useAPI<APIFunctions.GET_DREAM>(
-    APIFunctions.GET_DREAM,
-    {
-      autoFetch: true,
-    }
-  );
+  // View Dream by ID
+  const [viewModalShown, setViewModalShown] = useState(false);
+  const [viewDream, setViewDream] = useState<Dream>();
+
+  // Edit Dream by ID
+  const [editModalShown, setEditModalShown] = useState(false);
+  const [editDream, setEditDream] = useState<Dream>();
+
+  // Delete by ID
+  const [deleteModalShown, setDeleteModalShown] = useState(false);
+  const [deleteDream, setDeleteDream] = useState<Dream>();
+
+  useEffect(() => {
+    getDreams();
+  }, []);
+
+  // force refresh modals when other is opened (modal looks for id change)
+  useEffect(() => {
+    setEditDream(undefined);
+    setDeleteDream(undefined);
+  }, [viewModalShown]);
+  useEffect(() => {
+    setViewDream(undefined);
+    setDeleteDream(undefined);
+  }, [editModalShown]);
+  useEffect(() => {
+    setViewDream(undefined);
+    setEditDream(undefined);
+  }, [deleteModalShown]);
 
   return (
-    <div className="max-w-2xl">
-      {user.isLoaded && (
-        <div className="animate-in fade-in slide-in-from-bottom-5 duration-300">
-          <h1 className="text-3xl font-extrabold">
-            Welcome, {user.user?.fullName}
-          </h1>
-          <p className="break-words">
-            Dream Text: {JSON.stringify(data?.dream)}
-          </p>
-          <p className="break-words">Loading: {loading}</p>
-          <p className="break-words">Error: {error}</p>
-        </div>
+    <div className="flex w-full max-w-6xl flex-col">
+      <button
+        className="btn-success btn mx-auto mb-8 w-96"
+        onClick={() => setCreateModalShown(true)}
+      >
+        Create Dream
+      </button>
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {dreams?.map((dream) => (
+          <DreamCard
+            key={dream.id}
+            dream={dream}
+            setViewModalShown={setViewModalShown}
+            setViewDream={setViewDream}
+            setEditModalShown={setEditModalShown}
+            setEditDream={setEditDream}
+            setDeleteModalShown={setDeleteModalShown}
+            setDeleteDream={setDeleteDream}
+          />
+        ))}
+      </div>
+
+      {dreams?.length === 0 && (
+        <p className="text-center text-xl">No dreams yet.</p>
       )}
+      <Modal
+        title="Create Dream"
+        shown={createModalShown}
+        setShown={setCreateModalShown}
+      >
+        <Create onSubmit={() => setCreateModalShown(false)} />
+      </Modal>
+      <Modal shown={viewModalShown} setShown={setViewModalShown}>
+        <ViewDream dream={viewDream} />
+      </Modal>
+      <Modal shown={editModalShown} setShown={setEditModalShown}>
+        <EditDream
+          dream={editDream}
+          onSuccess={() => setEditModalShown(false)}
+        />
+      </Modal>
+      <Modal shown={deleteModalShown} setShown={setDeleteModalShown}>
+        <DeleteDream
+          onComplete={() => setDeleteModalShown(false)}
+          dream={deleteDream}
+        />
+      </Modal>
     </div>
   );
 }

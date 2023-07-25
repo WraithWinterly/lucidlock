@@ -6,4 +6,5 @@ export default {
     extend: {},
   },
   plugins: [require("daisyui"), require("tailwindcss-animate")],
+  
 } satisfies Config;
