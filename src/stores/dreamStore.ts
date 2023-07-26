@@ -10,7 +10,8 @@ const myStorage =
 
 enum Items {
   Dreams = "dreams",
-  PendingDeletions = "pendingDeletions",
+  StaleDeletions = "staleDeletions",
+  StaleEdits = "staleEdits",
 }
 
 type DreamStore = {
@@ -18,13 +19,15 @@ type DreamStore = {
   getDreams: () => void;
   getDreamContent: (id: string) => Promise<DreamContent | undefined>;
   addDream: (dream: Dream, dreamContent: DreamContent) => void;
-  removeDream: (id: string, dreamContentId: string) => void;
   editDream: (
     id: string,
     dream: Dream,
     dreamContent: DreamContent
   ) => Promise<void>;
-  getPendingDeletions: () => Promise<string[] | undefined>;
+  removeDream: (id: string, dreamContentId: string) => void;
+  getStaleDeletions: () => Promise<string[] | undefined>;
+  getStaleEdits: () => Promise<string[] | undefined>;
+  syncWithServer: () => void;
 };
 
 const useDreamStore = create<DreamStore>((set, get) => ({
@@ -37,7 +40,6 @@ const useDreamStore = create<DreamStore>((set, get) => ({
   },
   getDreamContent: async (dreamId: string) => {
     const targetDream = get().dreams.find((dream) => dream.id === dreamId);
-    console.log("asdf", targetDream);
     if (!targetDream) return undefined;
     const dreamContent = await myStorage?.getItem(targetDream.dreamContentId);
     if (dreamContent) {
@@ -55,21 +57,6 @@ const useDreamStore = create<DreamStore>((set, get) => ({
     );
     get().getDreams();
   },
-  removeDream: async (id: string, dreamContentId: string) => {
-    const deletions = await myStorage?.getItem(Items.PendingDeletions);
-    await myStorage?.set(
-      Items.PendingDeletions,
-      JSON.stringify([id, ...(deletions || [])])
-    );
-    await myStorage?.set(
-      Items.Dreams,
-      JSON.stringify(get().dreams.filter((dream) => dream.id !== id))
-    );
-    //@ts-expect-error Package creator forgot to add parameter type to delete method
-    await myStorage?.delete(dreamContentId);
-
-    get().getDreams();
-  },
   editDream: async (id: string, dream: Dream, dreamContent: DreamContent) => {
     const targetDream = get().dreams.find((dream) => dream.id === id);
 
@@ -82,17 +69,88 @@ const useDreamStore = create<DreamStore>((set, get) => ({
         return dream;
       });
       await myStorage?.set(Items.Dreams, JSON.stringify(dataToSet));
+
+      const staleEdits: string[] = JSON.parse(
+        (await myStorage?.getItem(Items.StaleEdits)) || "[]"
+      );
       await myStorage?.setItem(dreamContent.id, JSON.stringify(dreamContent));
+      // Add this dream to the stale edits list if it's not already there
+
+      if (!staleEdits?.includes(id)) {
+        await myStorage?.set(
+          Items.StaleEdits,
+          !!staleEdits
+            ? JSON.stringify([id, ...staleEdits])
+            : JSON.stringify([id])
+        );
+      }
+
       get().getDreams();
     }
   },
-  getPendingDeletions: async () => {
-    const pendingDeletions = await myStorage?.getItem(Items.PendingDeletions);
-    if (pendingDeletions) {
-      return JSON.parse(pendingDeletions);
+  removeDream: async (id: string, dreamContentId: string) => {
+    await myStorage?.set(
+      Items.Dreams,
+      JSON.stringify(get().dreams.filter((dream) => dream.id !== id))
+    );
+    //@ts-expect-error Package creator forgot to add parameter type to delete method
+    await myStorage?.delete(dreamContentId);
+
+    const staleDeletions: string[] = JSON.parse(
+      (await myStorage?.getItem(Items.StaleDeletions)) || "[]"
+    );
+    const staleEdits: string[] = JSON.parse(
+      (await myStorage?.getItem(Items.StaleEdits)) || "[]"
+    );
+
+    // Since we are removing this dream, we can remove it from the stale edits list if it's there
+    if (staleEdits?.includes(id)) {
+      await myStorage?.set(
+        Items.StaleEdits,
+        JSON.stringify(staleEdits.filter((editId) => editId !== id))
+      );
+    }
+    // Add this dream to the stale deletions list if it's not already there
+    if (!staleDeletions?.includes(id)) {
+      await myStorage?.set(
+        Items.StaleDeletions,
+        JSON.stringify([id, staleDeletions || []])
+      );
+    }
+
+    get().getDreams();
+  },
+  getStaleDeletions: async () => {
+    const staleDeletions = await myStorage?.getItem(Items.StaleDeletions);
+    if (staleDeletions) {
+      return JSON.parse(staleDeletions);
     } else {
       return undefined;
     }
+  },
+  getStaleEdits: async () => {
+    const staleEdits = await myStorage?.getItem(Items.StaleEdits);
+    if (staleEdits) {
+      return JSON.parse(staleEdits);
+    } else {
+      return undefined;
+    }
+  },
+  syncWithServer: async () => {
+    // Simluate sync
+    const stales = await Promise.all([
+      get().getStaleDeletions(),
+      get().getStaleEdits(),
+    ]);
+
+    const staleDeletions = stales[0];
+    const staleEdits = stales[1];
+
+    // Data to server
+
+    // Clean up
+    myStorage?.set(Items.StaleDeletions, JSON.stringify([]));
+    myStorage?.set(Items.StaleEdits, JSON.stringify([]));
   },
 }));
 

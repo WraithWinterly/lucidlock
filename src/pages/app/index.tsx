@@ -1,7 +1,7 @@
 "use client";
 
 import { Dream } from "@prisma/client";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Create from "~/components/app/create";
 import DeleteDream from "~/components/app/deleteDream";
 import EditDream from "~/components/app/editDream";
@@ -45,8 +45,36 @@ export default function App() {
     setEditDream(undefined);
   }, [deleteModalShown]);
 
+  const getStaleDeletions = useDreamStore((state) => state.getStaleDeletions);
+  const getStaleEdits = useDreamStore((state) => state.getStaleEdits);
+
+  const [deldata, setDelData] = useState<string[] | undefined>([]);
+  const [editdata, setEditData] = useState<string[] | undefined>([]);
+
+  useEffect(() => {
+    getStaleDeletions().then((res) => {
+      setDelData(res);
+    });
+    getStaleEdits().then((res) => {
+      setEditData(res);
+    });
+  }, [Math.random()]);
+
   return (
     <div className="flex w-full max-w-6xl flex-col">
+      <p>
+        Stale Deletions:
+        {deldata?.map((id) => (
+          <p>{id}</p>
+        ))}
+      </p>
+      <p>
+        Stale Edits:
+        {editdata?.map((id) => (
+          <p>{id}</p>
+        ))}
+      </p>
+
       <button
         className="btn-success btn mx-auto mb-8 w-96"
         onClick={() => setCreateModalShown(true)}
@@ -67,7 +95,6 @@ export default function App() {
           />
         ))}
       </div>
-
       {dreams?.length === 0 && (
         <p className="text-center text-xl">No dreams yet.</p>
       )}
